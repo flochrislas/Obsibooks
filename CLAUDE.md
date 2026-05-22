@@ -83,6 +83,27 @@ The PNG fallback is the only format-specific path. Even after lossy at `--qualit
 - **`--epub-only` and `--pdf-only` are mutually exclusive** (argparse group). Unset means "do both".
 - **Compression flags without `--compress` are warned-and-ignored**, not treated as implicit `--compress`. Avoids the "I typed it but nothing happened" footgun.
 
+## Releasing
+
+`.github/workflows/release.yml` fires on `v*.*.*` tag pushes and runs three jobs:
+
+1. **`pypi`** — builds sdist+wheel via `python -m build` and publishes to PyPI using OIDC trusted publishing (no token). The trusted publisher is already registered on PyPI against this repo's `release.yml` workflow with **no** environment — don't add an `environment:` key to the pypi job without updating the PyPI side too, or OIDC will fail with `invalid-publisher`.
+2. **`binaries`** — PyInstaller `--onefile` builds on `ubuntu-latest`, `macos-latest`, `windows-latest`, renamed to `obsibooks-linux` / `obsibooks-macos` / `obsibooks-windows.exe`.
+3. **`release`** — depends on both above; downloads the binary artifacts and creates the GitHub release with auto-generated notes.
+
+**Cutting a release:**
+
+```bash
+# bump __version__ in obsibooks.py (single source of truth — pyproject.toml reads it dynamically)
+git commit -am "Release vX.Y.Z"
+git tag -a vX.Y.Z -m "obsibooks vX.Y.Z"
+git push && git push origin vX.Y.Z
+```
+
+**If a job fails:** click *Re-run failed jobs* in the Actions UI (or `gh run rerun <id> --failed`). Successful jobs are reused. The catch is PyPI's immutability — if `pypi` actually uploaded before failing, the same version can't be re-uploaded; bump and re-tag instead. A pre-upload failure (OIDC mismatch, network) is safe to retry on the same tag.
+
+The `release` job depends on `[pypi, binaries]`, so a PyPI failure blocks the GitHub release. If PyPI becomes a recurring problem, the fix is to gate `release` on `needs.binaries.result == 'success'` with `if: always()` instead of requiring pypi.
+
 ## Public entry points to call from new code
 
 | Function | Purpose |
