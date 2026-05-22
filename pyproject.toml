@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obsibooks"
+description = "Convert EPUB and PDF ebooks to Obsidian-compatible markdown, with optional vault image compression."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+authors = [{ name = "flochrislas" }]
+keywords = ["obsidian", "epub", "pdf", "markdown", "ebook", "converter"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Utilities",
+]
+dynamic = ["version"]
+dependencies = [
+    "ebooklib",
+    "beautifulsoup4",
+    "lxml",
+    "pypandoc",
+    "pyyaml",
+    "pymupdf",
+    "pymupdf4llm",
+    "Pillow",
+]
+
+[project.optional-dependencies]
+gui = ["customtkinter"]
+
+[project.scripts]
+obsibooks = "obsibooks:main"
+
+[project.urls]
+Homepage = "https://github.com/flochrislas/obsibooks"
+Issues = "https://github.com/flochrislas/obsibooks/issues"
+
+[tool.setuptools]
+py-modules = ["obsibooks", "pepub", "pepdf", "compress_images"]
+
+[tool.setuptools.dynamic]
+version = { attr = "obsibooks.__version__" }

@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # to create the GitHub release and upload assets
+
+jobs:
+  # ─── 1. Build a PyPI sdist+wheel and publish via trusted publishing ───
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for PyPI trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No `password` needed — uses the trusted publisher configured on PyPI side
+        # against this repo's tag-release workflow. See https://docs.pypi.org/trusted-publishers/
+
+  # ─── 2. Build standalone PyInstaller binaries for each OS ───
+  binaries:
+    name: Build binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: obsibooks-linux
+            artifact: obsibooks
+          - os: macos-latest
+            asset: obsibooks-macos
+            artifact: obsibooks
+          - os: windows-latest
+            asset: obsibooks-windows.exe
+            artifact: obsibooks.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install runtime + build deps
+        # PyInstaller needs to import everything obsibooks imports, so we install
+        # the full dependency set here, not just the build deps.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+          python -m pip install -e .
+
+      - name: Build single-file binary
+        run: pyinstaller --onefile --name obsibooks obsibooks.py
+
+      - name: Rename binary for release asset
+        shell: bash
+        run: |
+          mv "dist/${{ matrix.artifact }}" "dist/${{ matrix.asset }}"
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  # ─── 3. Attach the three binaries to the GitHub release ───
+  release:
+    name: Create GitHub release
+    needs: [pypi, binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact tree
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -exec mv {} release-assets/ \;
+          ls -la release-assets
+
+      - name: Create / update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
