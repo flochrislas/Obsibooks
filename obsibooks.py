@@ -11,7 +11,7 @@ import io
 import sys
 from pathlib import Path
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 try:
     from pepub import convert_epub, _print_batch_report as _epub_batch_report
